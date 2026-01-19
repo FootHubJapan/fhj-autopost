@@ -1,20 +1,21 @@
 {
-  "platforms": {
-    "twitter": {
-      "accounts": [
-        {
-          "id": "account1",
-          "name": "Account 1"
-        }
-      ]
-    },
-    "instagram": {
-      "accounts": [
-        {
-          "id": "account1",
-          "name": "Account 1"
-        }
-      ]
+    "platforms": {
+      "twitter": {
+        "accounts": [
+          { "id": "x_soccer", "name": "X Soccer" },
+          { "id": "x_marketing", "name": "X Marketing" },
+          { "id": "x_ai", "name": "X AI" },
+          { "id": "x_job", "name": "X Job" }
+        ]
+      },
+      "instagram": {
+        "accounts": [
+          { "id": "ig_soccer", "name": "IG Soccer" },
+          { "id": "ig_marketing", "name": "IG Marketing" },
+          { "id": "ig_ai", "name": "IG AI" },
+          { "id": "ig_job", "name": "IG Job" }
+        ]
+      }
     }
   }
-}
+  
