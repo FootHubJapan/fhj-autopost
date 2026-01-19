@@ -9,28 +9,28 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Generate post packs
+          node-version: "20"
+
+      - name: Install deps
+        run: npm ci || npm i
+
+      - name: Run (dry)
+        run: npm run dry
         env:
+          DRY_RUN: "1"
           RSS_URLS: ${{ secrets.RSS_URLS }}
-        run: npm run run
-      
+
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: post-packs-${{ github.run_id }}
-          path: out/
-          retention-days: 30
+          name: out
+          path: out
+          if-no-files-found: warn
+
