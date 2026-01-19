@@ -1,0 +1,22 @@
+# FHJ Auto Post - Cursor Rules
+
+## プロジェクト概要
+RSSフィードからソーシャルメディア投稿パックを生成するNode.js (ESM)プロジェクト
+
+## コーディング規約
+- Node.js ESM形式を使用（`"type": "module"`）
+- エラーハンドリングは適切に行う（RSS単位・アカウント単位でtry/catch）
+- 二重生成防止のため、state/posted.jsonを適切に管理する
+- 出力ディレクトリ構造: `out/YYYY-MM-DD/<platform>/<account>/<post_id>/`
+
+## ファイル構造
+- `src/`: コアロジック
+- `scripts/`: 実行スクリプト
+- `config/`: 設定ファイル
+- `state/`: 状態管理（gitignore対象）
+- `out/`: 出力ディレクトリ（gitignore対象）
+
+## 注意事項
+- 失敗しても全体停止しない（各単位でtry/catch）
+- 投稿パック生成のみ（API投稿はしない）
+- ローカルテストは `npm run dry` で実行

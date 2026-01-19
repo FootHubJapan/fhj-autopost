@@ -1,0 +1,20 @@
+{
+  "platforms": {
+    "twitter": {
+      "accounts": [
+        {
+          "id": "account1",
+          "name": "Account 1"
+        }
+      ]
+    },
+    "instagram": {
+      "accounts": [
+        {
+          "id": "account1",
+          "name": "Account 1"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "fhj-autopost",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "RSS feed to social media post pack generator",
+  "main": "scripts/run.js",
+  "scripts": {
+    "dry": "node scripts/run.js --dry-run",
+    "run": "node scripts/run.js"
+  },
+  "keywords": ["rss", "social-media", "automation"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "rss-parser": "^3.13.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  }
+}
