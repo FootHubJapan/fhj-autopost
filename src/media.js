@@ -36,22 +36,39 @@ function svgCard({
   subtitle,
   footerLeft,
   footerRight,
+  categoryLabel,
+  summary,
 }) {
   const safeTitle = escapeXml(title);
   const safeSub = escapeXml(subtitle || "");
   const safeFL = escapeXml(footerLeft || "");
   const safeFR = escapeXml(footerRight || "");
+  const safeCategory = escapeXml(categoryLabel || "");
+  const safeSummary = escapeXml(summary || "");
 
-  const lines = wrapLines(safeTitle, width === 1080 && height === 1920 ? 26 : 24);
-  const lineHeight = width === 1080 && height === 1920 ? 92 : 86;
-  const startY = width === 1080 && height === 1920 ? 520 : 430;
+  // カテゴリタグ（上部）
+  const categoryTag = safeCategory ? `
+  <!-- category tag -->
+  <rect x="84" y="180" rx="20" ry="20" width="180" height="48"
+        fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.25)"/>
+  <text x="174" y="210" text-anchor="middle" font-size="24" font-weight="700"
+        fill="rgba(255,255,255,0.95)" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">
+    ${safeCategory}
+  </text>
+  ` : "";
 
-  const titleSvg = lines
-    .map((ln, i) => {
-      const y = startY + i * lineHeight;
-      return `<text x="84" y="${y}" font-size="${width === 1080 && height === 1920 ? 78 : 72}" font-weight="800" fill="#ffffff" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">${ln}</text>`;
-    })
-    .join("\n");
+  // タイトル（短縮版：結論1行）
+  const shortTitle = safeTitle.length > 40 ? safeTitle.substring(0, 37) + "..." : safeTitle;
+  const titleY = width === 1080 && height === 1920 ? (safeCategory ? 480 : 520) : (safeCategory ? 390 : 430);
+  const titleSvg = `<text x="84" y="${titleY}" font-size="${width === 1080 && height === 1920 ? 78 : 72}" font-weight="800" fill="#ffffff" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">${shortTitle}</text>`;
+
+  // 要点（3行）
+  const summaryLines = safeSummary ? safeSummary.split("\n").slice(0, 3) : [];
+  const summaryY = titleY + (width === 1080 && height === 1920 ? 120 : 100);
+  const summarySvg = summaryLines.map((line, i) => {
+    const y = summaryY + i * (width === 1080 && height === 1920 ? 70 : 60);
+    return `<text x="84" y="${y}" font-size="${width === 1080 && height === 1920 ? 42 : 36}" font-weight="500" fill="rgba(255,255,255,0.85)" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">• ${escapeXml(line.trim())}</text>`;
+  }).join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -73,14 +90,19 @@ function svgCard({
         width="${width - 112}" height="${width === 1080 && height === 1920 ? 980 : 720}"
         fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.14)" filter="url(#shadow)"/>
 
+  ${categoryTag}
+
   <!-- subtitle -->
   <text x="84" y="${width === 1080 && height === 1920 ? 360 : 310}" font-size="34" font-weight="700"
         fill="rgba(255,255,255,0.80)" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">
     ${safeSub}
   </text>
 
-  <!-- title -->
+  <!-- title (conclusion) -->
   ${titleSvg}
+
+  <!-- summary points -->
+  ${summarySvg}
 
   <!-- footer bar -->
   <rect x="56" y="${height - 220}" rx="32" ry="32"
@@ -107,6 +129,37 @@ function svgCard({
 </svg>`;
 }
 
+function generateSummary(title, categoryLabel) {
+  // タイトルから要点を生成（簡易版）
+  const t = title.toLowerCase();
+  
+  if (categoryLabel === "移籍") {
+    return [
+      "移籍情報が更新",
+      "詳細はリンクで確認",
+      "最新情報をチェック"
+    ];
+  } else if (categoryLabel === "怪我") {
+    return [
+      "選手の怪我情報",
+      "復帰時期に注目",
+      "詳細はリンクで確認"
+    ];
+  } else if (categoryLabel === "速報") {
+    return [
+      "試合結果速報",
+      "注目ポイントを確認",
+      "詳細はリンクで確認"
+    ];
+  } else {
+    return [
+      "最新情報をチェック",
+      "詳細はリンクで確認",
+      "続報をお待ちください"
+    ];
+  }
+}
+
 export async function generateImagesAndVideo({
   outDir,
   title,
@@ -114,7 +167,9 @@ export async function generateImagesAndVideo({
   handle = "@football_hub_japan",
   points,
   comments,
+  categoryLabel,
 }) {
+  const summary = generateSummary(title, categoryLabel).join("\n");
   fs.mkdirSync(outDir, { recursive: true });
 
   // Instagram feed: 1080x1350
@@ -125,6 +180,8 @@ export async function generateImagesAndVideo({
     subtitle: topicLabel,
     footerLeft: handle,
     footerRight: points != null && comments != null ? `★${points}  💬${comments}` : "",
+    categoryLabel,
+    summary,
   });
 
   const igPath = path.join(outDir, "ig_1080x1350.png");
@@ -138,6 +195,8 @@ export async function generateImagesAndVideo({
     subtitle: topicLabel,
     footerLeft: handle,
     footerRight: points != null && comments != null ? `★${points}  💬${comments}` : "",
+    categoryLabel,
+    summary,
   });
 
   const ttCoverPath = path.join(outDir, "tt_1080x1920_cover.png");

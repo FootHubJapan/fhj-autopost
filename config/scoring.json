@@ -1,0 +1,49 @@
+{
+  "categories": [
+    {
+      "id": "transfer",
+      "label": "移籍",
+      "score": 50,
+      "keywords": ["sign", "transfer", "deal", "bid", "loan", "here we go", "agrees", "medical", "release clause", "contract"]
+    },
+    {
+      "id": "injury",
+      "label": "怪我",
+      "score": 45,
+      "keywords": ["injury", "injured", "out for", "ruled out", "sidelined", "return", "back", "fitness", "suspension", "ban"]
+    },
+    {
+      "id": "manager",
+      "label": "監督交代",
+      "score": 40,
+      "keywords": ["sacked", "fired", "appointed", "manager", "coach", "takes over", "dismissed"]
+    },
+    {
+      "id": "tactics",
+      "label": "分析",
+      "score": 30,
+      "keywords": ["xg", "xa", "press", "build-up", "tactics", "analysis", "formations", "data", "stats"]
+    },
+    {
+      "id": "official",
+      "label": "公式",
+      "score": 25,
+      "keywords": ["official", "announce", "statement", "confirmed"]
+    },
+    {
+      "id": "result",
+      "label": "速報",
+      "score": 15,
+      "keywords": ["wins", "stunned", "defeats", "draw", "report", "final", "beats"]
+    }
+  ],
+  "exclude": {
+    "score": -999,
+    "keywords": ["rumor round-up", "roundup", "gossip", "what we know", "live blog", "gallery", "podcast"]
+  },
+  "boost": [
+    { "score": 15, "keywords": ["man city", "real madrid", "barcelona", "liverpool", "arsenal", "man united", "psg", "bayern"] },
+    { "score": 10, "keywords": ["champions league", "premier league", "la liga", "serie a"] }
+  ],
+  "minScoreToQueue": 20
+}

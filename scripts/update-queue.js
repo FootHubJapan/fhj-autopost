@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // scripts/update-queue.js
-// 今日分の投稿パックを queue/ にコピーする
+// 今日分の投稿パックを queue/ にコピーする（上位スコアのみ＋同ドメイン制限）
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "url";
+import { minScoreToQueue } from "../src/scoring.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +48,97 @@ function copyDir(src, dest) {
   return true;
 }
 
+function getDomain(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function loadMeta(packDir) {
+  const metaPath = path.join(packDir, "meta.json");
+  if (fs.existsSync(metaPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function processPlatform(platform, accountId, maxItems) {
+  const dateFolder = todayJST();
+  const todayOutDir = path.join(OUT_DIR, dateFolder);
+  const sourceDir = path.join(todayOutDir, platform, accountId);
+  const queueDir = path.join(QUEUE_DIR, platform);
+  
+  if (!fs.existsSync(sourceDir)) {
+    return 0;
+  }
+  
+  // 既存のqueueをクリア（投稿済みは残す）
+  if (fs.existsSync(queueDir)) {
+    const existing = fs.readdirSync(queueDir);
+    for (const item of existing) {
+      if (!item.includes("__POSTED")) {
+        const itemPath = path.join(queueDir, item);
+        fs.rmSync(itemPath, { recursive: true, force: true });
+      }
+    }
+  }
+  
+  // 全アイテムを読み込んでスコアリング
+  const items = fs.readdirSync(sourceDir)
+    .filter(item => {
+      const itemPath = path.join(sourceDir, item);
+      return fs.statSync(itemPath).isDirectory() && !item.includes("__POSTED");
+    })
+    .map(item => {
+      const itemPath = path.join(sourceDir, item);
+      const meta = loadMeta(itemPath);
+      return {
+        name: item,
+        path: itemPath,
+        meta: meta || {},
+        score: meta?.score || 0,
+        domain: getDomain(meta?.link || ""),
+      };
+    })
+    .filter(item => {
+      // 最小スコア以上のみ
+      return item.score >= minScoreToQueue();
+    })
+    .sort((a, b) => b.score - a.score); // スコア降順
+  
+  // 同ドメイン制限：各ドメインから最大1件
+  const domainMap = new Map();
+  const selected = [];
+  
+  for (const item of items) {
+    if (selected.length >= maxItems) break;
+    
+    const domain = item.domain || "unknown";
+    if (!domainMap.has(domain)) {
+      domainMap.set(domain, true);
+      selected.push(item);
+    }
+  }
+  
+  // 選択されたアイテムをコピー
+  let copied = 0;
+  for (const item of selected) {
+    const destPath = path.join(queueDir, item.name);
+    if (copyDir(item.path, destPath)) {
+      copied++;
+    }
+  }
+  
+  return copied;
+}
+
 function main() {
   const dateFolder = todayJST();
   const todayOutDir = path.join(OUT_DIR, dateFolder);
@@ -59,75 +151,25 @@ function main() {
   // queue ディレクトリを作成
   fs.mkdirSync(QUEUE_DIR, { recursive: true });
   
-  let copied = 0;
+  let totalCopied = 0;
   
-  // TikTok用
+  // TikTok用（上位3件）
   const tiktokAccount = accounts.platforms.tiktok?.accounts?.[0];
   if (tiktokAccount) {
-    const tiktokQueueDir = path.join(QUEUE_DIR, "tiktok");
-    const tiktokSourceDir = path.join(todayOutDir, "tiktok", tiktokAccount.id);
-    
-    if (fs.existsSync(tiktokSourceDir)) {
-      // 既存のqueue/tiktokをクリア（投稿済みは残す）
-      if (fs.existsSync(tiktokQueueDir)) {
-        const existing = fs.readdirSync(tiktokQueueDir);
-        for (const item of existing) {
-          if (!item.includes("__POSTED")) {
-            const itemPath = path.join(tiktokQueueDir, item);
-            fs.rmSync(itemPath, { recursive: true, force: true });
-          }
-        }
-      }
-      
-      // 今日分をコピー（投稿済みでないもののみ）
-      const items = fs.readdirSync(tiktokSourceDir);
-      for (const item of items) {
-        const srcPath = path.join(tiktokSourceDir, item);
-        const destPath = path.join(tiktokQueueDir, item);
-        
-        // 投稿済みでない場合のみコピー
-        if (!item.includes("__POSTED") && fs.statSync(srcPath).isDirectory()) {
-          copyDir(srcPath, destPath);
-          copied++;
-        }
-      }
-    }
+    const copied = processPlatform("tiktok", tiktokAccount.id, 3);
+    totalCopied += copied;
+    console.log(`TikTok: ${copied} items queued (top 3)`);
   }
   
-  // Instagram用
+  // Instagram用（上位1件）
   const instagramAccount = accounts.platforms.instagram?.accounts?.[0];
   if (instagramAccount) {
-    const instagramQueueDir = path.join(QUEUE_DIR, "instagram");
-    const instagramSourceDir = path.join(todayOutDir, "instagram", instagramAccount.id);
-    
-    if (fs.existsSync(instagramSourceDir)) {
-      // 既存のqueue/instagramをクリア（投稿済みは残す）
-      if (fs.existsSync(instagramQueueDir)) {
-        const existing = fs.readdirSync(instagramQueueDir);
-        for (const item of existing) {
-          if (!item.includes("__POSTED")) {
-            const itemPath = path.join(instagramQueueDir, item);
-            fs.rmSync(itemPath, { recursive: true, force: true });
-          }
-        }
-      }
-      
-      // 今日分をコピー（投稿済みでないもののみ）
-      const items = fs.readdirSync(instagramSourceDir);
-      for (const item of items) {
-        const srcPath = path.join(instagramSourceDir, item);
-        const destPath = path.join(instagramQueueDir, item);
-        
-        // 投稿済みでない場合のみコピー
-        if (!item.includes("__POSTED") && fs.statSync(srcPath).isDirectory()) {
-          copyDir(srcPath, destPath);
-          copied++;
-        }
-      }
-    }
+    const copied = processPlatform("instagram", instagramAccount.id, 1);
+    totalCopied += copied;
+    console.log(`Instagram: ${copied} items queued (top 1)`);
   }
   
-  console.log(`Queue updated: ${copied} items copied from ${dateFolder}`);
+  console.log(`\nQueue updated: ${totalCopied} items copied from ${dateFolder}`);
   console.log(`TikTok: queue/tiktok/`);
   console.log(`Instagram: queue/instagram/`);
 }

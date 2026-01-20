@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import Parser from "rss-parser";
 import { generateImagesAndVideo } from "../src/media.js";
 import { generatePostGuide } from "./make-guide.js";
+import { scoreTitle } from "../src/scoring.js";
 
 const argv = new Set(process.argv.slice(2));
 const DRY = argv.has("--dry") || argv.has("--dry-run");
@@ -53,10 +54,16 @@ function hash(s) {
   return crypto.createHash("sha256").update(s).digest("hex").slice(0, 12);
 }
 
-function formatCaption(item) {
+function formatCaption(item, categoryLabel) {
   const title = item.title?.trim() ?? "(no title)";
   const link = item.link?.trim() ?? "";
-  return `${title}\n\n${link}`.trim() + "\n";
+  
+  // カテゴリラベルがある場合は追加
+  if (categoryLabel && categoryLabel !== "速報" && categoryLabel !== "除外") {
+    return `【${categoryLabel}】${title}\n\n🔗 ${link}\n`;
+  }
+  
+  return `${title}\n\n🔗 ${link}\n`;
 }
 
 function formatHashtags(feedId) {
@@ -129,6 +136,9 @@ async function main() {
           continue;
         }
 
+        // スコアリング
+        const scoring = scoreTitle(item.title || "");
+        
         // ここで「どのプラットフォームに生成するか」を決める
         for (const [platform, pCfg] of Object.entries(accounts.platforms)) {
           for (const acct of pCfg.accounts) {
@@ -141,7 +151,7 @@ async function main() {
                 `${slugify(item.link || item.title || "item")}_${hash(key)}`
               );
 
-              const caption = formatCaption(item);
+              const caption = formatCaption(item, scoring.categoryLabel);
               const hashtags = formatHashtags(feed.id);
 
               if (!DRY) ensureDir(outBase);
@@ -155,7 +165,10 @@ async function main() {
                 feedId: feed.id,
                 platform,
                 accountId: acct.id,
-                generatedAt: new Date().toISOString()
+                generatedAt: new Date().toISOString(),
+                score: scoring.score,
+                categoryId: scoring.categoryId,
+                categoryLabel: scoring.categoryLabel
               };
 
               if (DRY) {
@@ -183,6 +196,7 @@ async function main() {
                     handle: acct.handle || "@football_hub_japan",
                     points,
                     comments,
+                    categoryLabel: scoring.categoryLabel,
                   });
                   console.log(`      Generated media: ig_1080x1350.png, tt_1080x1920_cover.png, tt_1080x1920.mp4`);
                 } catch (error) {
