@@ -150,6 +150,62 @@ GitHub Actionsで1時間に1回自動実行されます。
 
 `state/posted.json` に投稿済みの `post_id` を記録し、同じIDの記事はスキップします。
 
+## 運用フロー（手動投稿）
+
+### 1. 投稿キューを更新
+
+毎日、今日分の投稿パックを `queue/` に集めます：
+
+```bash
+npm run queue
+```
+
+これで以下が作成されます：
+- `queue/tiktok/` - TikTok用投稿パック
+- `queue/instagram/` - Instagram用投稿パック
+
+### 2. TikTok予約投稿（約3分/本）
+
+1. TikTok Studio → Upload
+2. `queue/tiktok/投稿フォルダ/tt_1080x1920.mp4` をドラッグ
+3. `caption.txt` の内容をコピペ
+4. 設定 → いつ公開するか → 日時を設定（例：08:10, 12:10, 20:10）
+5. 投稿（スケジュール）
+
+**推奨**: 1日3本（朝/昼/夜）
+
+### 3. Instagram投稿（約2分/本）
+
+1. `queue/instagram/投稿フォルダ/ig_1080x1350.png` をスマホに送る（AirDrop推奨）
+2. Instagramアプリ → ＋ → 投稿
+3. 画像選択 → 次へ → 次へ
+4. `caption.txt` + `hashtags.txt` をコピペ
+5. シェア
+
+**コツ**: captionの先頭に「結論1行」を追加すると伸びやすい
+
+### 4. 投稿済みマーク
+
+投稿したフォルダに `__POSTED` を付けて、二重投稿を防止：
+
+```bash
+npm run mark-posted tiktok フォルダ名
+npm run mark-posted instagram フォルダ名
+```
+
+または手動で：
+```bash
+mv "queue/tiktok/xxx" "queue/tiktok/xxx__POSTED"
+mv "queue/instagram/yyy" "queue/instagram/yyy__POSTED"
+```
+
+### 毎日の作業（合計10分以内）
+
+1. `npm run queue` 実行（10秒）
+2. TikTok：3本予約（6分）
+3. Instagram：1本投稿（2分）
+4. 投稿済みマーク（30秒）
+
 ## 次のステップ
 
 現在は「投稿パックの生成」まで実装済みです。次は以下のいずれかを実装できます：

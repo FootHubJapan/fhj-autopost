@@ -7,7 +7,9 @@
   "main": "scripts/run.js",
   "scripts": {
     "dry": "node scripts/run.js --dry",
-    "run": "node scripts/run.js"
+    "run": "node scripts/run.js",
+    "queue": "node scripts/update-queue.js",
+    "mark-posted": "node scripts/mark-posted.js"
   },
   "keywords": [
     "rss",
