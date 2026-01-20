@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import Parser from "rss-parser";
 import { generateImagesAndVideo } from "../src/media.js";
+import { generatePostGuide } from "./make-guide.js";
 
 const argv = new Set(process.argv.slice(2));
 const DRY = argv.has("--dry") || argv.has("--dry-run");
@@ -188,6 +189,18 @@ async function main() {
                   console.error(`      Error generating media:`, error.message);
                   // メディア生成エラーでも続行
                 }
+              }
+              
+              // 投稿ガイドを生成
+              try {
+                generatePostGuide(outBase, platform, {
+                  title: item.title || "",
+                  link: item.link || "",
+                  sourceUrl: feed.url,
+                });
+              } catch (error) {
+                console.error(`      Error generating guide:`, error.message);
+                // ガイド生成エラーでも続行
               }
               
               totalGenerated++;
