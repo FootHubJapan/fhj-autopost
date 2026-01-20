@@ -9,6 +9,7 @@ RSSフィードからソーシャルメディア投稿パックを自動生成�
 - 二重生成防止（投稿済みIDを記録）
 - エラーハンドリング（RSS単位・アカウント単位で継続実行）
 - GitHub Actionsで定期実行（1時間に1回）
+- サッカー用RSSフィードに対応
 
 ## セットアップ
 
@@ -17,13 +18,9 @@ RSSフィードからソーシャルメディア投稿パックを自動生成�
 npm install
 ```
 
-2. 環境変数を設定:
+2. RSSフィードを設定:
 ```bash
-# .env ファイルを作成
-cat > .env << EOF
-RSS_URLS=https://example.com/feed1.xml,https://example.com/feed2.xml
-EOF
-# または手動で .env ファイルを作成して RSS_URLS を設定
+# config/feeds.json を編集して使用するRSSフィードを設定
 ```
 
 3. アカウント設定を編集:
@@ -55,13 +52,34 @@ out/
     <platform>/
       <account>/
         <post_id>/
-          caption.txt      # 投稿本文
+          caption.txt      # 投稿本文（タイトル + リンク）
           hashtags.txt     # ハッシュタグ
-          sources.txt      # ソースURL
-          meta.json        # メタデータ
+          sources.txt      # ソースURL（フィードURL + 記事URL）
+          meta.json        # メタデータ（postId, title, link, pubDate等）
 ```
 
 ## 設定ファイル
+
+### config/feeds.json
+
+RSSフィードの設定:
+
+```json
+{
+  "feeds": [
+    {
+      "id": "espn_soccer",
+      "name": "ESPN Soccer News",
+      "url": "https://www.espn.com/espn/rss/soccer/news"
+    },
+    {
+      "id": "bbc_sport",
+      "name": "BBC Sport Football",
+      "url": "https://feeds.bbci.co.uk/sport/football/rss.xml"
+    }
+  ]
+}
+```
 
 ### config/accounts.json
 
@@ -72,9 +90,24 @@ out/
   "platforms": {
     "twitter": {
       "accounts": [
+        { "id": "x_soccer", "name": "X Soccer" }
+      ]
+    },
+    "instagram": {
+      "accounts": [
         {
-          "id": "account1",
-          "name": "Account 1"
+          "id": "ig_football_hub_japan",
+          "handle": "@football_hub_japan",
+          "name": "Football Hub Japan"
+        }
+      ]
+    },
+    "tiktok": {
+      "accounts": [
+        {
+          "id": "tt_fhj",
+          "handle": "@football_hub_japan",
+          "name": "TikTok FHJ"
         }
       ]
     }
@@ -82,31 +115,25 @@ out/
 }
 ```
 
-### .env
-
-環境変数:
-
-```
-RSS_URLS=https://example.com/feed1.xml,https://example.com/feed2.xml
-```
-
 ## GitHub Actions
 
 GitHub Actionsで1時間に1回自動実行されます。
 
-### Secrets設定
-
-リポジトリのSettings > Secrets and variables > Actions で以下を設定:
-
-- `RSS_URLS`: カンマ区切りのRSSフィードURL
-
 ### Artifacts
 
-実行結果はArtifactsとして保存され、30日間保持されます。
+実行結果はArtifactsとして保存され、ダウンロード可能です。
 
 ## 二重生成防止
 
 `state/posted.json` に投稿済みの `post_id` を記録し、同じIDの記事はスキップします。
+
+## 次のステップ
+
+現在は「投稿パックの生成」まで実装済みです。次は以下のいずれかを実装できます：
+
+1. **TikTok Studioへの自動入力**（Playwright等でブラウザ自動操作）
+2. **X (Twitter) API**での自動投稿
+3. **Instagram Graph API**での自動投稿
 
 ## ライセンス
 

@@ -1,13 +1,12 @@
-name: Auto Post Generator
+name: autopost
 
 on:
   schedule:
-    # 1時間に1回実行
-    - cron: '0 * * * *'
-  workflow_dispatch: # 手動実行も可能
+    - cron: "0 * * * *"  # 毎時
+  workflow_dispatch:
 
 jobs:
-  generate:
+  run:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,21 +15,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
 
       - name: Install deps
-        run: npm ci || npm i
+        run: npm ci
 
-      - name: Run (dry)
-        run: npm run dry
-        env:
-          DRY_RUN: "1"
-          RSS_URLS: ${{ secrets.RSS_URLS }}
+      - name: Run generator
+        run: npm run run
 
-      - name: Upload artifacts
+      - name: Upload output artifact
         uses: actions/upload-artifact@v4
         with:
           name: out
           path: out
-          if-no-files-found: warn
-

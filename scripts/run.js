@@ -1,137 +1,205 @@
-import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs/promises';
-import { fetchMultipleRSSFeeds } from '../src/rss.js';
-import { generatePostPack } from '../src/post-pack.js';
-import { loadPostedIds, addPostedId } from '../src/state.js';
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import Parser from "rss-parser";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const argv = new Set(process.argv.slice(2));
+const DRY = argv.has("--dry") || argv.has("--dry-run");
 
-// .env ファイルを読み込む
-config();
+const ROOT = process.cwd();
+const OUT_DIR = path.join(ROOT, "out");
+const CONFIG_DIR = path.join(ROOT, "config");
+const STATE_DIR = path.join(ROOT, "state");
 
-// アカウント設定を読み込む
-const accountsConfigPath = path.join(__dirname, '..', 'config', 'accounts.json');
-const accountsConfig = JSON.parse(await fs.readFile(accountsConfigPath, 'utf-8'));
+const ACCOUNTS_PATH = path.join(CONFIG_DIR, "accounts.json");
+const FEEDS_PATH = path.join(CONFIG_DIR, "feeds.json");
+const POSTED_PATH = path.join(STATE_DIR, "posted.json");
 
-const isDryRun = process.argv.includes('--dry-run');
-const OUTPUT_DIR = path.join(__dirname, '..', 'out');
+function ensureDir(p) {
+  fs.mkdirSync(p, { recursive: true });
+}
 
-/**
- * メイン処理
- */
+function readJson(p) {
+  return JSON.parse(fs.readFileSync(p, "utf-8"));
+}
+
+function writeJson(p, obj) {
+  fs.writeFileSync(p, JSON.stringify(obj, null, 2), "utf-8");
+}
+
+function writeText(p, s) {
+  fs.writeFileSync(p, s, "utf-8");
+}
+
+function todayJST() {
+  // GitHub ActionsはUTCなので、JST寄せで日付フォルダを作る
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
+function slugify(s) {
+  return s
+    .toLowerCase()
+    .replace(/https?:\/\//g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+}
+
+function hash(s) {
+  return crypto.createHash("sha256").update(s).digest("hex").slice(0, 12);
+}
+
+function formatCaption(item) {
+  const title = item.title?.trim() ?? "(no title)";
+  const link = item.link?.trim() ?? "";
+  return `${title}\n\n${link}`.trim() + "\n";
+}
+
+function formatHashtags(feedId) {
+  // サッカー用ハッシュタグ
+  const baseTags = [
+    "#サッカー",
+    "#海外サッカー",
+    "#football",
+    "#soccer"
+  ];
+  
+  // feedIdに応じた追加タグ
+  const feedTags = {
+    "espn_soccer": ["#ESPN", "#サッカー情報"],
+    "goal_japan": ["#Goal", "#サッカー速報"]
+  };
+  
+  const tags = [...baseTags, ...(feedTags[feedId] || []), `#${feedId}`];
+  return tags.join(" ") + "\n";
+}
+
 async function main() {
-  const rssUrls = process.env.RSS_URLS;
-  
-  if (!rssUrls) {
-    console.error('Error: RSS_URLS environment variable is not set');
-    process.exit(1);
+  ensureDir(OUT_DIR);
+  ensureDir(STATE_DIR);
+
+  const accounts = readJson(ACCOUNTS_PATH);
+  const feedsCfg = readJson(FEEDS_PATH);
+
+  let posted;
+  if (fs.existsSync(POSTED_PATH)) {
+    try {
+      posted = readJson(POSTED_PATH);
+      if (!posted.items) {
+        posted.items = {};
+      }
+    } catch (error) {
+      console.warn("Failed to read posted.json, starting fresh");
+      posted = { items: {} };
+    }
+  } else {
+    posted = { items: {} };
   }
+
+  const parser = new Parser({
+    customFields: {
+      item: ['media:content', 'media:thumbnail']
+    },
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; RSS-Reader/1.0)'
+    }
+  });
   
-  const urlList = rssUrls.split(',').map(url => url.trim()).filter(Boolean);
-  
-  if (urlList.length === 0) {
-    console.error('Error: No valid RSS URLs found');
-    process.exit(1);
-  }
-  
-  console.log(`Starting ${isDryRun ? 'dry-run' : 'normal'} mode`);
-  console.log(`RSS URLs: ${urlList.length}`);
-  
-  // 出力ディレクトリを作成
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
-  
-  // 投稿済みIDを読み込む
-  const postedIds = await loadPostedIds();
-  console.log(`Loaded ${postedIds.size} posted IDs`);
-  
-  // RSSフィードを取得
-  const feedResults = await fetchMultipleRSSFeeds(urlList);
-  
+  const dateFolder = todayJST();
   let totalProcessed = 0;
   let totalSkipped = 0;
   let totalGenerated = 0;
-  
-  // 各RSSフィードを処理
-  for (const feedResult of feedResults) {
-    console.log(`\nProcessing RSS feed: ${feedResult.url}`);
-    console.log(`  Items: ${feedResult.items.length}`);
-    
-    // 各プラットフォームとアカウントの組み合わせで処理
-    for (const [platform, platformConfig] of Object.entries(accountsConfig.platforms)) {
-      for (const account of platformConfig.accounts) {
-        try {
-          console.log(`  Processing ${platform}/${account.id}...`);
-          
-          let accountProcessed = 0;
-          let accountSkipped = 0;
-          let accountGenerated = 0;
-          
-          // 各記事を処理
-          for (const item of feedResult.items) {
+
+  for (const feed of feedsCfg.feeds) {
+    try {
+      console.log(`\nProcessing RSS feed: ${feed.name} (${feed.url})`);
+      const parsed = await parser.parseURL(feed.url);
+      console.log(`  Found ${parsed.items.length} items`);
+
+      for (const item of parsed.items.slice(0, 10)) {
+        const postId = item.guid || item.id || item.link || item.title || Math.random().toString();
+        const key = `${feed.id}:${hash(postId)}`;
+
+        if (posted.items[key]) {
+          totalSkipped++;
+          continue;
+        }
+
+        // ここで「どのプラットフォームに生成するか」を決める
+        for (const [platform, pCfg] of Object.entries(accounts.platforms)) {
+          for (const acct of pCfg.accounts) {
             try {
-              const postId = item.guid || item.link || `${item.title}-${Date.now()}`;
-              
-              // 既に投稿済みかチェック
-              if (postedIds.has(postId)) {
-                accountSkipped++;
+              const outBase = path.join(
+                OUT_DIR,
+                dateFolder,
+                platform,
+                acct.id,
+                `${slugify(item.link || item.title || "item")}_${hash(key)}`
+              );
+
+              const caption = formatCaption(item);
+              const hashtags = formatHashtags(feed.id);
+
+              if (!DRY) ensureDir(outBase);
+
+              const meta = {
+                postId: postId,
+                title: item.title || "",
+                link: item.link || "",
+                pubDate: item.pubDate || item.isoDate || "",
+                sourceUrl: feed.url,
+                feedId: feed.id,
+                platform,
+                accountId: acct.id,
+                generatedAt: new Date().toISOString()
+              };
+
+              if (DRY) {
+                console.log(`  [DRY] ${platform}/${acct.id}: ${item.title?.substring(0, 50)}...`);
+                totalProcessed++;
                 continue;
               }
+
+              writeText(path.join(outBase, "caption.txt"), caption);
+              writeText(path.join(outBase, "hashtags.txt"), hashtags);
+              writeText(path.join(outBase, "sources.txt"), `Feed: ${feed.url}\nItem: ${item.link || ""}\n`);
+              writeJson(path.join(outBase, "meta.json"), meta);
               
-              // 投稿パックを生成
-              const result = await generatePostPack(
-                item,
-                platform,
-                account.id,
-                OUTPUT_DIR
-              );
-              
-              // 投稿済みIDに追加
-              if (!isDryRun) {
-                await addPostedId(result.postId);
-                postedIds.add(result.postId);
-              }
-              
-              accountGenerated++;
-              console.log(`    Generated: ${result.packPath}`);
-              
+              totalGenerated++;
+              console.log(`    Generated: ${platform}/${acct.id}/${path.basename(outBase)}`);
             } catch (error) {
-              console.error(`    Error processing item "${item.title}":`, error.message);
-              // エラーが発生しても続行
+              console.error(`    Error processing ${platform}/${acct.id}:`, error.message);
             }
-            
-            accountProcessed++;
           }
-          
-          totalProcessed += accountProcessed;
-          totalSkipped += accountSkipped;
-          totalGenerated += accountGenerated;
-          
-          console.log(`  ${platform}/${account.id}: Processed=${accountProcessed}, Skipped=${accountSkipped}, Generated=${accountGenerated}`);
-          
-        } catch (error) {
-          console.error(`  Error processing ${platform}/${account.id}:`, error.message);
-          // エラーが発生しても続行
         }
+
+        posted.items[key] = { at: new Date().toISOString(), feedId: feed.id };
+        totalProcessed++;
       }
+    } catch (error) {
+      console.error(`Failed to process feed ${feed.name}:`, error.message);
+      // エラーが発生しても続行
     }
   }
-  
+
+  if (!DRY) {
+    writeJson(POSTED_PATH, posted);
+  }
+
   console.log(`\n=== Summary ===`);
   console.log(`Total Processed: ${totalProcessed}`);
   console.log(`Total Skipped: ${totalSkipped}`);
   console.log(`Total Generated: ${totalGenerated}`);
-  console.log(`Output Directory: ${OUTPUT_DIR}`);
+  console.log(`Output Directory: ${OUT_DIR}`);
   
-  if (isDryRun) {
+  if (DRY) {
     console.log('\n[Dry-run mode] No state was saved');
   }
 }
 
-// エラーハンドリング
-main().catch(error => {
-  console.error('Fatal error:', error);
+main().catch((e) => {
+  console.error(e);
   process.exit(1);
 });

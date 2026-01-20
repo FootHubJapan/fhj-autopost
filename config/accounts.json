@@ -10,10 +10,20 @@
       },
       "instagram": {
         "accounts": [
-          { "id": "ig_soccer", "name": "IG Soccer" },
-          { "id": "ig_marketing", "name": "IG Marketing" },
-          { "id": "ig_ai", "name": "IG AI" },
-          { "id": "ig_job", "name": "IG Job" }
+          {
+            "id": "ig_football_hub_japan",
+            "handle": "@football_hub_japan",
+            "name": "Football Hub Japan"
+          }
+        ]
+      },
+      "tiktok": {
+        "accounts": [
+          {
+            "id": "tt_fhj",
+            "handle": "@football_hub_japan",
+            "name": "TikTok FHJ"
+          }
         ]
       }
     }
