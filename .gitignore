@@ -3,5 +3,6 @@ node_modules/
 out/
 state/posted.json
 queue/
+queue_index.csv
 .DS_Store
 *.log
