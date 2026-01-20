@@ -206,6 +206,31 @@ mv "queue/instagram/yyy" "queue/instagram/yyy__POSTED"
 3. Instagram：1本投稿（2分）
 4. 投稿済みマーク（30秒）
 
+## キュー一覧のエクスポート
+
+投稿パックをスプレッドシートで管理できます：
+
+```bash
+npm run export:csv
+```
+
+これで `queue_index.csv` が生成されます。Google Sheetsにインポートして投稿作業を管理できます。
+
+### CSVの列構成
+
+- **投稿管理**: platform, category, score, title, link
+- **投稿スケジュール**: recommendedTime, scheduledDate, scheduledTime, posted
+- **投稿内容**: caption, hashtags
+- **ファイル確認**: hasIg, hasTtVideo, hasTtCover
+- **その他**: accountId, domain, pubDate, postId, folder, notes, guidePreview
+
+### Google Sheetsでの使い方
+
+1. `npm run export:csv` でCSVを生成
+2. Google Sheets → ファイル → インポート → `queue_index.csv` をアップロード
+3. `scheduledDate`, `scheduledTime`, `posted`, `notes` 列に手動で入力
+4. `link` 列は自動的にクリック可能なリンクになります
+
 ## 次のステップ
 
 現在は「投稿パックの生成」まで実装済みです。次は以下のいずれかを実装できます：
@@ -213,6 +238,7 @@ mv "queue/instagram/yyy" "queue/instagram/yyy__POSTED"
 1. **TikTok Studioへの自動入力**（Playwright等でブラウザ自動操作）
 2. **X (Twitter) API**での自動投稿
 3. **Instagram Graph API**での自動投稿
+4. **Google Sheets API**での自動反映（B案）
 
 ## ライセンス
 
