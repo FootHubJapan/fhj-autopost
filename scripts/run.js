@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import Parser from "rss-parser";
+import { generateImagesAndVideo } from "../src/media.js";
 
 const argv = new Set(process.argv.slice(2));
 const DRY = argv.has("--dry") || argv.has("--dry-run");
@@ -166,6 +167,28 @@ async function main() {
               writeText(path.join(outBase, "hashtags.txt"), hashtags);
               writeText(path.join(outBase, "sources.txt"), `Feed: ${feed.url}\nItem: ${item.link || ""}\n`);
               writeJson(path.join(outBase, "meta.json"), meta);
+              
+              // 画像・動画生成（Instagram/TikTok用）
+              if (platform === "instagram" || platform === "tiktok") {
+                try {
+                  // RSSアイテムからpoints/commentsを抽出（Hacker News形式の場合）
+                  const points = item.points || item.score || null;
+                  const comments = item.numComments || item.comments || null;
+                  
+                  await generateImagesAndVideo({
+                    outDir: outBase,
+                    title: item.title || "",
+                    topicLabel: feed.name || "Daily Pick",
+                    handle: acct.handle || "@football_hub_japan",
+                    points,
+                    comments,
+                  });
+                  console.log(`      Generated media: ig_1080x1350.png, tt_1080x1920_cover.png, tt_1080x1920.mp4`);
+                } catch (error) {
+                  console.error(`      Error generating media:`, error.message);
+                  // メディア生成エラーでも続行
+                }
+              }
               
               totalGenerated++;
               console.log(`    Generated: ${platform}/${acct.id}/${path.basename(outBase)}`);

@@ -18,6 +18,18 @@ RSSフィードからソーシャルメディア投稿パックを自動生成�
 npm install
 ```
 
+2. ffmpegをインストール（TikTok動画生成に必要）:
+```bash
+# macOS
+brew install ffmpeg
+
+# Linux (Ubuntu/Debian)
+sudo apt-get install ffmpeg
+
+# Windows
+# https://ffmpeg.org/download.html からダウンロード
+```
+
 2. RSSフィードを設定:
 ```bash
 # config/feeds.json を編集して使用するRSSフィードを設定
@@ -52,11 +64,22 @@ out/
     <platform>/
       <account>/
         <post_id>/
-          caption.txt      # 投稿本文（タイトル + リンク）
-          hashtags.txt     # ハッシュタグ
-          sources.txt      # ソースURL（フィードURL + 記事URL）
-          meta.json        # メタデータ（postId, title, link, pubDate等）
+          caption.txt           # 投稿本文（タイトル + リンク）
+          hashtags.txt          # ハッシュタグ
+          sources.txt           # ソースURL（フィードURL + 記事URL）
+          meta.json             # メタデータ（postId, title, link, pubDate等）
+          ig_1080x1350.png      # Instagram用画像（4:5、instagram/tiktokプラットフォームのみ）
+          tt_1080x1920_cover.png # TikTok用カバー画像（9:16、instagram/tiktokプラットフォームのみ）
+          tt_1080x1920.mp4      # TikTok用簡易動画（ズーム演出、ffmpegが必要）
 ```
+
+### 画像・動画生成
+
+- **Instagram用画像**: 1080x1350px（4:5）の縦型画像
+- **TikTok用カバー画像**: 1080x1920px（9:16）の縦型画像
+- **TikTok用動画**: 12秒のズーム演出付き動画（ffmpegが必要）
+
+画像・動画は `instagram` と `tiktok` プラットフォームの投稿パックにのみ生成されます。
 
 ## 設定ファイル
 

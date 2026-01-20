@@ -9,10 +9,15 @@
     "dry": "node scripts/run.js --dry",
     "run": "node scripts/run.js"
   },
-  "keywords": ["rss", "social-media", "automation"],
+  "keywords": [
+    "rss",
+    "social-media",
+    "automation"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "sharp": "^0.34.5"
   }
 }
