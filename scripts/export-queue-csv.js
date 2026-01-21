@@ -86,6 +86,12 @@ for (const platform of platforms) {
     const accountId = meta.accountId || "";
     const pubDate = meta.pubDate || "";
     const domain = getDomain(link);
+    
+    // Drive URL（アップロード済みの場合）
+    const driveUrls = meta.driveUrls || {};
+    const igImageUrl = driveUrls.igImageUrl || "";
+    const ttCoverUrl = driveUrls.ttCoverUrl || "";
+    const ttVideoUrl = driveUrls.ttVideoUrl || "";
 
     // ファイル有無
     const hasIg = fs.existsSync(path.join(dir, "ig_1080x1350.png"));
@@ -122,6 +128,11 @@ for (const platform of platforms) {
       hasTtVideo: hasTtVideo ? "✅" : "",
       hasTtCover: hasTtCover ? "✅" : "",
       
+      // Drive URL（アップロード済みの場合）
+      igImageUrl,
+      ttCoverUrl,
+      ttVideoUrl,
+      
       // 投稿スケジュール（手動入力用）
       recommendedTime,
       scheduledDate,
@@ -150,6 +161,8 @@ const header = [
   "caption", "hashtags",
   // ファイル確認
   "hasIg", "hasTtVideo", "hasTtCover",
+  // Drive URL
+  "igImageUrl", "ttCoverUrl", "ttVideoUrl",
   // その他
   "accountId", "domain", "pubDate", "postId", "folder", "notes", "guidePreview"
 ];

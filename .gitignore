@@ -4,5 +4,6 @@ out/
 state/posted.json
 queue/
 queue_index.csv
+config/google-service-account.json
 .DS_Store
 *.log

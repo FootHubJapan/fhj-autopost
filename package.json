@@ -10,7 +10,10 @@
     "run": "node scripts/run.js",
     "queue": "node scripts/update-queue.js",
     "mark-posted": "node scripts/mark-posted.js",
-    "export:csv": "node scripts/export-queue-csv.js"
+    "export:csv": "node scripts/export-queue-csv.js",
+    "upload:drive": "node scripts/upload-to-drive.js",
+    "push:sheets": "node scripts/push-to-sheets.js",
+    "sync": "npm run export:csv && npm run upload:drive && npm run push:sheets"
   },
   "keywords": [
     "rss",
@@ -20,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "googleapis": "^170.1.0",
     "rss-parser": "^3.13.0",
     "sharp": "^0.34.5"
   }

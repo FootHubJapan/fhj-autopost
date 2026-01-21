@@ -226,10 +226,32 @@ npm run export:csv
 
 ### Google Sheetsでの使い方
 
+#### A) 手動インポート（簡単）
+
 1. `npm run export:csv` でCSVを生成
 2. Google Sheets → ファイル → インポート → `queue_index.csv` をアップロード
 3. `scheduledDate`, `scheduledTime`, `posted`, `notes` 列に手動で入力
 4. `link` 列は自動的にクリック可能なリンクになります
+
+#### B) 自動反映（Google Drive + Sheets API）
+
+1. Google Cloud Consoleでサービスアカウントを作成
+2. Google Drive APIとGoogle Sheets APIを有効化
+3. 認証JSONをダウンロードして `config/google-service-account.json` に保存
+4. Google Driveにフォルダを作成し、サービスアカウントに共有（編集権限）
+5. スプレッドシートをサービスアカウントのメールに共有（編集権限）
+6. 環境変数を設定:
+   ```bash
+   export DRIVE_FOLDER_ID=your_drive_folder_id
+   export SPREADSHEET_ID=1dBV92z75Se0LPsLOKo8_nhGzL6Q7CVipoGpcuCoi7pk
+   ```
+7. `npm run sync` で一括実行（CSV生成→Driveアップロード→Sheets更新）
+
+**個別実行**:
+- `npm run upload:drive` - 画像・動画をDriveにアップロード
+- `npm run push:sheets` - CSVをSheetsに反映
+
+**スプレッドシートID**: `1dBV92z75Se0LPsLOKo8_nhGzL6Q7CVipoGpcuCoi7pk`
 
 ## 次のステップ
 
