@@ -1,178 +1,226 @@
 // scripts/export-queue-csv.js
-// キュー一覧をCSVにエクスポート（Google Sheets投稿作業向け最適化版）
+// Exports queue/*/* into queue_index.csv with Drive URL columns (from meta.json)
+// Output: queue_index.csv (UTF-8)
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const ROOT = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.join(__dirname, "..");
+
 const QUEUE_DIR = path.join(ROOT, "queue");
 const OUT_CSV = path.join(ROOT, "queue_index.csv");
 
-function safeRead(filePath) {
-  try { return fs.readFileSync(filePath, "utf-8"); } catch { return ""; }
-}
-
-function listDirs(p) {
+function readText(p) {
   try {
-    return fs.readdirSync(p, { withFileTypes: true })
-      .filter(d => d.isDirectory() && !d.name.includes("__POSTED"))
-      .map(d => d.name);
+    return fs.readFileSync(p, "utf8").trim();
   } catch {
-    return [];
+    return "";
   }
 }
 
-function csvEscape(v) {
-  const s = String(v ?? "");
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+function readJson(p) {
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function existsFile(p) {
+  try {
+    return fs.existsSync(p) && fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function escapeCsv(val) {
+  const s = (val ?? "").toString();
+  if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
   return s;
 }
 
-function getDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
-}
+function listPacks() {
+  if (!fs.existsSync(QUEUE_DIR)) return [];
+  const platforms = fs
+    .readdirSync(QUEUE_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
 
-function formatDateForSheets(dateStr) {
-  if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    // Google Sheets用の日付フォーマット (YYYY-MM-DD HH:MM)
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
-  } catch {
-    return dateStr;
+  const packs = [];
+  for (const platform of platforms) {
+    const platformDir = path.join(QUEUE_DIR, platform);
+    const folders = fs
+      .readdirSync(platformDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.includes("__POSTED"))
+      .map((d) => d.name);
+
+    for (const folderName of folders) {
+      const folder = path.join(platformDir, folderName);
+      packs.push({ platform, folderName, folder });
+    }
   }
+  return packs;
 }
 
-function getRecommendedTime(platform, index) {
-  // TikTok: 08:10, 12:10, 20:10
-  // Instagram: 12:00
+function recommendTime(platform, idxWithinPlatform) {
   if (platform === "tiktok") {
-    const times = ["08:10", "12:10", "20:10"];
-    return times[index % times.length] || "08:10";
-  } else if (platform === "instagram") {
-    return "12:00";
+    const slots = ["08:10", "12:10", "20:10"];
+    return slots[idxWithinPlatform % slots.length];
   }
+  if (platform === "instagram") return "12:00";
+  if (platform === "twitter") return "08:30";
   return "";
 }
 
-const platforms = ["tiktok", "instagram", "twitter"];
-const rows = [];
-
-for (const platform of platforms) {
-  const pdir = path.join(QUEUE_DIR, platform);
-  const posts = listDirs(pdir);
-
-  posts.forEach((postId, index) => {
-    const dir = path.join(pdir, postId);
-    const metaPath = path.join(dir, "meta.json");
-    const metaRaw = safeRead(metaPath);
-    let meta = {};
-    try { meta = metaRaw ? JSON.parse(metaRaw) : {}; } catch {}
-
-    const caption = safeRead(path.join(dir, "caption.txt")).trim();
-    const hashtags = safeRead(path.join(dir, "hashtags.txt")).trim();
-    const guide = safeRead(path.join(dir, "POST_GUIDE.txt")).trim();
-
-    const link = meta.link || "";
-    const title = meta.title || "";
-    const category = meta.categoryLabel || meta.category || "";
-    const score = meta.score ?? "";
-    const accountId = meta.accountId || "";
-    const pubDate = meta.pubDate || "";
-    const domain = getDomain(link);
-    
-    // Drive URL（アップロード済みの場合）
-    const driveUrls = meta.driveUrls || {};
-    const igImageUrl = driveUrls.igImageUrl || "";
-    const ttCoverUrl = driveUrls.ttCoverUrl || "";
-    const ttVideoUrl = driveUrls.ttVideoUrl || "";
-
-    // ファイル有無
-    const hasIg = fs.existsSync(path.join(dir, "ig_1080x1350.png"));
-    const hasTtVideo = fs.existsSync(path.join(dir, "tt_1080x1920.mp4"));
-    const hasTtCover = fs.existsSync(path.join(dir, "tt_1080x1920_cover.png"));
-
-    // 投稿作業向け情報
-    const recommendedTime = getRecommendedTime(platform, index);
-    const scheduledDate = ""; // 手動入力用
-    const scheduledTime = ""; // 手動入力用
-    const posted = ""; // POSTEDチェック用（手動入力: ✅）
-    const notes = ""; // メモ用（手動入力）
-
-    // フォルダパス（相対パス）
-    const folderPath = dir.replace(ROOT + "/", "");
-
-    rows.push({
-      // 基本情報
-      platform,
-      accountId,
-      category,
-      score,
-      title,
-      link,
-      domain,
-      pubDate: formatDateForSheets(pubDate),
-      
-      // 投稿内容
-      caption,
-      hashtags,
-      
-      // ファイル有無
-      hasIg: hasIg ? "✅" : "",
-      hasTtVideo: hasTtVideo ? "✅" : "",
-      hasTtCover: hasTtCover ? "✅" : "",
-      
-      // Drive URL（アップロード済みの場合）
-      igImageUrl,
-      ttCoverUrl,
-      ttVideoUrl,
-      
-      // 投稿スケジュール（手動入力用）
-      recommendedTime,
-      scheduledDate,
-      scheduledTime,
-      posted,
-      notes,
-      
-      // その他
-      postId,
-      folder: folderPath,
-      guidePreview: guide.slice(0, 100)
-    });
-  });
+/**
+ * Convert Drive file ID to direct download URL for IMAGE() formula
+ * @param {string} fileId - Drive file ID
+ * @returns {string} Direct download URL or empty string
+ */
+function getDriveImageUrl(fileId) {
+  if (!fileId) return "";
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
-// スコア降順（数値っぽいものだけ）
-rows.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+/**
+ * Extract file ID from Drive URL (webViewLink or webContentLink)
+ * @param {string} url - Drive URL
+ * @returns {string} File ID or empty string
+ */
+function extractFileIdFromUrl(url) {
+  if (!url) return "";
+  // Match patterns like: /file/d/FILE_ID/view or /file/d/FILE_ID/
+  const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : "";
+}
 
-// 投稿作業向けに最適化した列順
-const header = [
-  // 投稿管理
-  "platform", "category", "score", "title", "link",
-  // 投稿スケジュール
-  "recommendedTime", "scheduledDate", "scheduledTime", "posted",
-  // 投稿内容
-  "caption", "hashtags",
-  // ファイル確認
-  "hasIg", "hasTtVideo", "hasTtCover",
-  // Drive URL
-  "igImageUrl", "ttCoverUrl", "ttVideoUrl",
-  // その他
-  "accountId", "domain", "pubDate", "postId", "folder", "notes", "guidePreview"
-];
+function main() {
+  const packs = listPacks();
+  if (packs.length === 0) {
+    console.log("No packs in queue/. Run `npm run queue` first.");
+    process.exit(0);
+  }
 
-const csv = [
-  header.join(","),
-  ...rows.map(r => header.map(h => csvEscape(r[h])).join(","))
-].join("\n");
+  // Build rows
+  const rows = [];
+  const byPlatformIndex = { tiktok: 0, instagram: 0, twitter: 0 };
 
-fs.writeFileSync(OUT_CSV, csv, "utf-8");
-console.log(`✅ Wrote ${rows.length} rows -> ${OUT_CSV}`);
-console.log(`📊 Columns: ${header.length}`);
-console.log(`📋 Ready for Google Sheets import!`);
+  for (const p of packs) {
+    const meta = readJson(path.join(p.folder, "meta.json")) || {};
+    const caption = readText(path.join(p.folder, "caption.txt"));
+    const hashtags = readText(path.join(p.folder, "hashtags.txt"));
+
+    const drive = meta.drive || {};
+
+    const hasIg = existsFile(path.join(p.folder, "ig_1080x1350.png")) ? "✅" : "";
+    const hasTtCover = existsFile(path.join(p.folder, "tt_1080x1920_cover.png")) ? "✅" : "";
+    const hasTtVideo = existsFile(path.join(p.folder, "tt_1080x1920.mp4")) ? "✅" : "";
+
+    const platformIdx = byPlatformIndex[p.platform] ?? 0;
+    const recommendedTime = recommendTime(p.platform, platformIdx);
+    byPlatformIndex[p.platform] = platformIdx + 1;
+
+    const guidePreview = readText(path.join(p.folder, "POST_GUIDE.txt")).slice(0, 220);
+
+    // Extract file IDs (prefer stored IDs, fallback to extracting from URLs)
+    const igImageFileId = drive.igImageFileId || extractFileIdFromUrl(drive.igImageUrl || "");
+    const ttCoverFileId = drive.ttCoverFileId || extractFileIdFromUrl(drive.ttCoverUrl || "");
+    const ttVideoFileId = drive.ttVideoFileId || extractFileIdFromUrl(drive.ttVideoUrl || "");
+
+    // Generate direct download URLs for IMAGE() formula
+    const igImageDirectUrl = getDriveImageUrl(igImageFileId);
+    const ttCoverDirectUrl = getDriveImageUrl(ttCoverFileId);
+
+    rows.push({
+      platform: p.platform,
+      category: meta.categoryLabel || meta.category || "",
+      score: meta.score ?? "",
+      title: meta.title || "",
+      link: meta.link || "",
+      recommendedTime,
+      scheduledDate: "",
+      scheduledTime: "",
+      posted: "",
+      caption,
+      hashtags,
+      // ★ Drive URL columns (original sharing links)
+      igImageUrl: drive.igImageUrl || "",
+      ttCoverUrl: drive.ttCoverUrl || "",
+      ttVideoUrl: drive.ttVideoUrl || "",
+      // ★ Drive File IDs (for direct download URL generation)
+      igImageFileId: igImageFileId || "",
+      ttCoverFileId: ttCoverFileId || "",
+      ttVideoFileId: ttVideoFileId || "",
+      // ★ Image preview formula (uses direct download URL for IMAGE() function)
+      igPreview: igImageDirectUrl ? `=IMAGE("${igImageDirectUrl}")` : "",
+      ttCoverPreview: ttCoverDirectUrl ? `=IMAGE("${ttCoverDirectUrl}")` : "",
+      hasIg,
+      hasTtVideo,
+      hasTtCover,
+      accountId: meta.accountId || "",
+      domain: meta.domain || "",
+      pubDate: meta.pubDate || "",
+      postId: meta.postId || meta.postID || "",
+      folder: `queue/${p.platform}/${p.folderName}`,
+      notes: "",
+      guidePreview,
+    });
+  }
+
+  // Sort by score desc (numbers), then title
+  rows.sort((a, b) => {
+    const sa = Number(a.score || 0);
+    const sb = Number(b.score || 0);
+    if (sb !== sa) return sb - sa;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+
+  const headers = [
+    "platform",
+    "category",
+    "score",
+    "title",
+    "link",
+    "recommendedTime",
+    "scheduledDate",
+    "scheduledTime",
+    "posted",
+    "caption",
+    "hashtags",
+    "igImageUrl",
+    "ttCoverUrl",
+    "ttVideoUrl",
+    "igImageFileId",
+    "ttCoverFileId",
+    "ttVideoFileId",
+    "igPreview",
+    "ttCoverPreview",
+    "hasIg",
+    "hasTtVideo",
+    "hasTtCover",
+    "accountId",
+    "domain",
+    "pubDate",
+    "postId",
+    "folder",
+    "notes",
+    "guidePreview",
+  ];
+
+  const lines = [];
+  lines.push(headers.map(escapeCsv).join(","));
+  for (const r of rows) {
+    lines.push(headers.map((h) => escapeCsv(r[h])).join(","));
+  }
+
+  fs.writeFileSync(OUT_CSV, lines.join("\n") + "\n", "utf8");
+  console.log(`✅ Exported ${rows.length} rows -> ${path.relative(ROOT, OUT_CSV)}`);
+}
+
+main();

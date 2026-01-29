@@ -5,5 +5,8 @@ state/posted.json
 queue/
 queue_index.csv
 config/google-service-account.json
+config/oauth-client.json
+config/oauth-token.json
+config/*.json
 .DS_Store
 *.log

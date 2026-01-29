@@ -235,23 +235,38 @@ npm run export:csv
 
 #### B) 自動反映（Google Drive + Sheets API）
 
-1. Google Cloud Consoleでサービスアカウントを作成
-2. Google Drive APIとGoogle Sheets APIを有効化
-3. 認証JSONをダウンロードして `config/google-service-account.json` に保存
-4. Google Driveにフォルダを作成し、サービスアカウントに共有（編集権限）
-5. スプレッドシートをサービスアカウントのメールに共有（編集権限）
-6. 環境変数を設定:
+**詳細なセットアップ手順は `SETUP.md` を参照してください。**
+
+**クイックスタート**:
+
+1. **サービスアカウントJSONの配置**:
    ```bash
-   export DRIVE_FOLDER_ID=your_drive_folder_id
-   export SPREADSHEET_ID=1dBV92z75Se0LPsLOKo8_nhGzL6Q7CVipoGpcuCoi7pk
+   mkdir -p config
+   mv ~/Downloads/*.json config/google-service-account.json
    ```
-7. `npm run sync` で一括実行（CSV生成→Driveアップロード→Sheets更新）
 
-**個別実行**:
-- `npm run upload:drive` - 画像・動画をDriveにアップロード
-- `npm run push:sheets` - CSVをSheetsに反映
+2. **環境変数の設定**:
+   ```bash
+   export DRIVE_FOLDER_ID="your_drive_folder_id"  # DriveフォルダのID（URLのfolders/の後）
+   export SPREADSHEET_ID="1VeypuBvnyLO70JG2wY0Y78rMSnOe0lpR8VoZbQmc_XY"
+   ```
 
-**スプレッドシートID**: `1dBV92z75Se0LPsLOKo8_nhGzL6Q7CVipoGpcuCoi7pk`
+3. **実行**:
+   ```bash
+   npm run sync
+   ```
+
+**スプレッドシートID**: `1VeypuBvnyLO70JG2wY0Y78rMSnOe0lpR8VoZbQmc_XY`
+
+**トラブルシューティング**: `SETUP.md` の「トラブルシューティング」セクションを参照してください。
+
+**CSVの列構成（更新）**:
+- **投稿管理**: platform, category, score, title, link
+- **投稿スケジュール**: recommendedTime, scheduledDate, scheduledTime, posted
+- **投稿内容**: caption, hashtags
+- **Drive URL**: igImageUrl, ttCoverUrl, ttVideoUrl, igPreview（=IMAGE()関数）
+- **ファイル確認**: hasIg, hasTtVideo, hasTtCover
+- **その他**: accountId, domain, pubDate, postId, folder, notes, guidePreview
 
 ## 次のステップ
 

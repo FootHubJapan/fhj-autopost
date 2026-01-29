@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram Card</title>
+  <link rel="stylesheet" href="template.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="card">
+    <!-- Background with gradient and noise -->
+    <div class="background"></div>
+    
+    <!-- Hero Image (optional) -->
+    <div class="hero-image" id="heroImage"></div>
+    
+    <!-- Glass card overlay -->
+    <div class="glass-card">
+      <!-- Category Label -->
+      <div class="category-label" id="categoryLabel"></div>
+      
+  <!-- Main Title (Conclusion) -->
+  <h1 class="title" id="title" data-length="normal"></h1>
+      
+      <!-- Bullet Points -->
+      <ul class="bullets" id="bullets"></ul>
+      
+      <!-- CTA -->
+      <div class="cta" id="cta">続きはプロフィールリンクから</div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <span class="handle" id="handle"></span>
+      <span class="date" id="date"></span>
+    </div>
+    
+    <!-- Brand -->
+    <div class="brand">Football Hub Japan</div>
+  </div>
+  
+  <script>
+    // Data injection
+    const data = window.CARD_DATA || {};
+    
+    // Category Label
+    if (data.categoryLabel) {
+      document.getElementById('categoryLabel').textContent = data.categoryLabel;
+      document.getElementById('categoryLabel').style.display = 'block';
+    }
+    
+    // Title with auto-clamp
+    if (data.title) {
+      const titleEl = document.getElementById('title');
+      titleEl.textContent = data.title;
+      // Auto-clamp to 2 lines handled by CSS
+    }
+    
+    // Bullets
+    if (data.bullets && data.bullets.length > 0) {
+      const bulletsEl = document.getElementById('bullets');
+      data.bullets.slice(0, 3).forEach(bullet => {
+        const li = document.createElement('li');
+        li.textContent = bullet;
+        bulletsEl.appendChild(li);
+      });
+    }
+    
+    // Hero Image
+    if (data.heroImageUrl) {
+      const heroEl = document.getElementById('heroImage');
+      heroEl.style.backgroundImage = `url(${data.heroImageUrl})`;
+      heroEl.style.display = 'block';
+    }
+    
+    // Handle
+    if (data.handle) {
+      document.getElementById('handle').textContent = data.handle;
+    }
+    
+    // Date
+    if (data.dateString) {
+      document.getElementById('date').textContent = data.dateString;
+    }
+  </script>
+</body>
+</html>

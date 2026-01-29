@@ -12,8 +12,10 @@
     "mark-posted": "node scripts/mark-posted.js",
     "export:csv": "node scripts/export-queue-csv.js",
     "upload:drive": "node scripts/upload-to-drive.js",
-    "push:sheets": "node scripts/push-to-sheets.js",
-    "sync": "npm run export:csv && npm run upload:drive && npm run push:sheets"
+    "push:sheets": "node scripts/push-sheets.js",
+    "render:ig": "node scripts/render-ig-card.js",
+    "sync": "npm run render:ig && npm run upload:drive && npm run export:csv && npm run push:sheets",
+    "setup:oauth": "node scripts/setup-oauth.js"
   },
   "keywords": [
     "rss",
@@ -26,5 +28,8 @@
     "googleapis": "^170.1.0",
     "rss-parser": "^3.13.0",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.57.0"
   }
 }
