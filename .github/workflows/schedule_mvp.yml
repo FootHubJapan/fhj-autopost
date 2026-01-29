@@ -1,0 +1,74 @@
+name: Schedule MVP (dry-run)
+
+on:
+  schedule:
+    - cron: "0 21 * * *"
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "Region (JP/EU/US)"
+        required: true
+        default: "JP"
+      mode:
+        description: "full or changes"
+        required: true
+        default: "full"
+      format:
+        description: "format id (1/2/3)"
+        required: true
+        default: "1"
+
+jobs:
+  schedule-mvp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Resolve inputs
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REGION="${{ inputs.region }}"
+            MODE="${{ inputs.mode }}"
+            FORMAT="${{ inputs.format }}"
+          else
+            if [ "${{ github.event.schedule }}" = "0 21 * * *" ]; then
+              REGION="JP"
+              MODE="full"
+              FORMAT="1"
+            else
+              REGION="JP"
+              MODE="changes"
+              FORMAT="1"
+            fi
+          fi
+          echo "region=$REGION" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
+      - name: Run pipeline
+        run: |
+          python apps/pipeline/cli.py collect --topic schedule --date today --region "${{ steps.vars.outputs.region }}"
+          python apps/pipeline/cli.py validate --topic schedule --region "${{ steps.vars.outputs.region }}"
+          python apps/pipeline/cli.py compose --topic schedule --channel x --format "${{ steps.vars.outputs.format }}" --mode "${{ steps.vars.outputs.mode }}"
+          python apps/pipeline/cli.py publish --topic schedule --channel x --mode dry-run
+      - name: Build job summary
+        run: |
+          if [ "${{ steps.vars.outputs.mode }}" = "changes" ]; then
+            if grep -q "変更はありません" apps/pipeline/data/contents/schedule_x.txt; then
+              echo "差分なし" > apps/pipeline/data/contents/job_summary.txt
+            else
+              cp apps/pipeline/data/contents/schedule_x.txt apps/pipeline/data/contents/job_summary.txt
+            fi
+          else
+            cp apps/pipeline/data/contents/schedule_x.txt apps/pipeline/data/contents/job_summary.txt
+          fi
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedule-mvp-output
+          path: |
+            apps/pipeline/data/contents
+            apps/pipeline/data/state

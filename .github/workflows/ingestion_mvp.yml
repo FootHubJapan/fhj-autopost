@@ -1,0 +1,44 @@
+name: Ingestion MVP (dry-run)
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Ingestion profile"
+        required: true
+        default: "soccer_schedule"
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          pip install -r apps/ingestion/requirements.txt
+      - name: Run ingestion
+        env:
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          if [ -z "$PROFILE" ]; then
+            PROFILE="soccer_schedule"
+          fi
+          python apps/ingestion/cli.py ingest --profile "$PROFILE"
+      - name: Build job summary
+        run: |
+          mkdir -p apps/pipeline/data/contents
+          echo "ingestion 完了" > apps/pipeline/data/contents/job_summary.txt
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-output
+          path: |
+            apps/pipeline/data/facts
+            apps/pipeline/data/sources
+            apps/pipeline/data/state
+            apps/pipeline/data/contents/job_summary.txt

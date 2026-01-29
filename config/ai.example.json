@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "apiKey": "your-api-key",
+  "baseUrl": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeoutMs": 12000,
+  "prompt": {
+    "system": "You are a Japanese social media editor for soccer news. Produce concise, accurate summaries.",
+    "user": "Return JSON with keys caption and hashtags. caption should be 1-2 sentences in Japanese plus the link on a new line. hashtags should be an array of 5-10 Japanese/English hashtags (include #サッカー)."
+  }
+}

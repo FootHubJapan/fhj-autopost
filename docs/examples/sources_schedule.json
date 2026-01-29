@@ -1,0 +1,16 @@
+{
+  "topic": "schedule",
+  "collected_at": "2026-01-28T05:46:36Z",
+  "items": [
+    {
+      "name": "Jリーグ公式",
+      "url": "https://www.jleague.jp/",
+      "type": "official"
+    },
+    {
+      "name": "DAZN",
+      "url": "https://www.dazn.com/",
+      "type": "broadcast"
+    }
+  ]
+}
