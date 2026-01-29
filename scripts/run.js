@@ -5,6 +5,7 @@ import Parser from "rss-parser";
 import { generateImagesAndVideo } from "../src/media.js";
 import { generatePostGuide } from "./make-guide.js";
 import { scoreTitle } from "../src/scoring.js";
+import { generateAiPost, loadAiConfig } from "../src/ai.js";
 
 const argv = new Set(process.argv.slice(2));
 const DRY = argv.has("--dry") || argv.has("--dry-run");
@@ -75,13 +76,27 @@ function formatHashtags(feedId) {
     "#soccer"
   ];
   
+  const [category] = feedId.split("_");
+  const categoryTags = {
+    news: ["#サッカー速報", "#ニュース"],
+    result: ["#試合結果"],
+    transfer: ["#移籍情報"],
+    schedule: ["#試合日程", "#放送予定"],
+    team: ["#クラブニュース"]
+  };
+
   // feedIdに応じた追加タグ
   const feedTags = {
-    "espn_soccer": ["#ESPN", "#サッカー情報"],
-    "goal_japan": ["#Goal", "#サッカー速報"]
+    news_espn: ["#ESPN"],
+    news_bbc: ["#BBCSport"]
   };
-  
-  const tags = [...baseTags, ...(feedTags[feedId] || []), `#${feedId}`];
+
+  const tags = [
+    ...baseTags,
+    ...(categoryTags[category] || []),
+    ...(feedTags[feedId] || []),
+    `#${feedId}`,
+  ];
   return tags.join(" ") + "\n";
 }
 
@@ -120,6 +135,7 @@ async function main() {
   let totalProcessed = 0;
   let totalSkipped = 0;
   let totalGenerated = 0;
+  const aiConfig = loadAiConfig(CONFIG_DIR);
 
   for (const feed of feedsCfg.feeds) {
     try {
@@ -152,7 +168,30 @@ async function main() {
               );
 
               const caption = formatCaption(item, scoring.categoryLabel);
-              const hashtags = formatHashtags(feed.id);
+              let hashtags = formatHashtags(feed.id);
+              let aiCaption = "";
+              let aiUsed = false;
+
+              if (aiConfig.enabled && !DRY) {
+                try {
+                  const aiResult = await generateAiPost({
+                    item,
+                    feed,
+                    scoring,
+                    config: aiConfig,
+                  });
+                  if (aiResult?.caption) {
+                    aiUsed = true;
+                    const linkLine = item.link ? `\n\n🔗 ${item.link}` : "";
+                    aiCaption = `${aiResult.caption}${linkLine}\n`;
+                  }
+                  if (aiResult?.hashtags) {
+                    hashtags = aiResult.hashtags;
+                  }
+                } catch (error) {
+                  console.warn(`      AI generation failed: ${error.message}`);
+                }
+              }
 
               if (!DRY) ensureDir(outBase);
 
@@ -177,7 +216,7 @@ async function main() {
                 continue;
               }
 
-              writeText(path.join(outBase, "caption.txt"), caption);
+              writeText(path.join(outBase, "caption.txt"), aiUsed ? aiCaption : caption);
               writeText(path.join(outBase, "hashtags.txt"), hashtags);
               writeText(path.join(outBase, "sources.txt"), `Feed: ${feed.url}\nItem: ${item.link || ""}\n`);
               writeJson(path.join(outBase, "meta.json"), meta);

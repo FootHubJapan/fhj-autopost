@@ -40,6 +40,12 @@ sudo apt-get install ffmpeg
 # config/accounts.json を編集してプラットフォームとアカウントを設定
 ```
 
+4. （任意）AI生成を有効化:
+```bash
+# config/ai.example.json を config/ai.json にコピーして編集
+# AI_ENABLED=1 と AI_API_KEY を環境変数で渡してもOK
+```
+
 ## 使い方
 
 ### ローカル実行（dry-run）
@@ -53,6 +59,72 @@ npm run dry
 ```bash
 npm run run
 ```
+
+## AIネイティブ運用MVP（サッカー日程）
+
+`apps/pipeline/` に、試合スケジュール/放送情報向けの最小パイプラインを追加しています。  
+CLIで collect → validate → compose → publish を実行できます。
+
+```bash
+python apps/pipeline/cli.py collect --topic schedule --date today --region JP
+python apps/pipeline/cli.py validate --topic schedule --region JP
+python apps/pipeline/cli.py compose --topic schedule --channel x --format 1 --mode full
+python apps/pipeline/cli.py publish --topic schedule --channel x --mode dry-run
+```
+
+### よくある失敗
+- `facts/sources が空`: collect に失敗した場合は last_success にフォールバックします。
+- `validate で重複排除`: 同一試合は natural_key で統合されます。
+- `時刻がズレる`: `--region` のTZを確認（JP/EU/US）。
+
+### 自動実行（GitHub Actions）
+`.github/workflows/schedule_mvp.yml` を追加しています。  
+毎朝（JST 06:00 相当）に dry-run で生成し、成果物をArtifactsに保存します（cron: `0 21 * * *`）。
+
+### スモークテスト
+```bash
+./scripts/pipeline_smoke_test.sh
+```
+
+## LINE司令塔（Orchestrator）
+
+LINEから固定コマンドを送信して、GitHub Actionsのworkflowを起動・結果通知する最小オーケストレーターを追加しています。
+
+### セットアップ概要
+- 必要なSecrets/環境変数を用意（`LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, `WORKFLOW_FILE`）
+- LINE Developers でWebhook URLを `https://<host>/callback` に設定
+- Orchestratorを起動
+
+```bash
+uvicorn apps.line_orchestrator.main:app --host 0.0.0.0 --port 8000
+```
+
+### LINEコマンド（allowlist）
+- `run schedule today JP format=1`
+- `run schedule changes JP`
+- `run ingest`
+- `run learn`
+- `learn_status`
+- `score <run_id> likes=.. reposts=.. replies=..`
+- `status`
+- `help`
+
+詳細は `apps/line_orchestrator/README.md` と `docs/line_orchestrator.md` を参照してください。
+
+### 自動ジョブ（収集/学習）
+- `ingestion_mvp.yml`：3時間おきにWeb収集（workflow_dispatch対応）
+- `learning_mvp.yml`：日次の学習更新（workflow_dispatch対応）
+
+### Web収集の方針
+- RSS/API/公式ページを優先（robots.txt/利用規約/ライセンス順守）
+- 過度なリクエストは避け、User-Agent/レート制限を設定
+- 収集結果は `facts/sources` に分離して保存
+  - 追加方法は `docs/ingestion.md` を参照
+
+### 学習の仕組み
+- 収集した反応（metrics）を保存し、勝ちパターンを `learning.json` に集計
+- `compose` は指定がない場合、学習結果を参照して推奨formatを採用
+- 詳細は `docs/learning.md` を参照
 
 ## 出力形式
 
@@ -134,6 +206,24 @@ RSSフィードの設定:
         }
       ]
     }
+  }
+}
+```
+
+### config/ai.json（任意）
+
+AIで caption/hashtags を生成する場合の設定です。`config/ai.example.json` を参考に作成してください。
+
+```json
+{
+  "enabled": true,
+  "apiKey": "your-api-key",
+  "baseUrl": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeoutMs": 12000,
+  "prompt": {
+    "system": "You are a Japanese social media editor for soccer news. Produce concise, accurate summaries.",
+    "user": "Return JSON with keys caption and hashtags. caption should be 1-2 sentences in Japanese plus the link on a new line. hashtags should be an array of 5-10 Japanese/English hashtags (include #サッカー)."
   }
 }
 ```

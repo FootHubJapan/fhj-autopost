@@ -1,0 +1,14 @@
+profiles:
+  soccer_schedule:
+    description: "公式/配信の発表をRSS/APIから取得"
+    sources:
+      - id: jleague_official
+        name: "Jリーグ公式"
+        kind: rss
+        url: "https://www.jleague.jp/rss/"
+        type: official
+      - id: dazn_news
+        name: "DAZN News"
+        kind: rss
+        url: "https://www.dazn.com/ja-JP/news/rss"
+        type: broadcast

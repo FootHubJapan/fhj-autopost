@@ -1,0 +1,18 @@
+{
+  "topic": "schedule",
+  "region": "JP",
+  "date": "2026-01-28",
+  "generated_at": "2026-01-28T05:46:36Z",
+  "confidence": 0.8,
+  "fixtures": [
+    {
+      "kickoff_local": "19:00",
+      "kickoff_utc": "2026-01-28T10:00:00+00:00",
+      "home": "川崎フロンターレ",
+      "away": "横浜F・マリノス",
+      "competition": "J1",
+      "broadcast": "DAZN",
+      "natural_key": "sha256-example"
+    }
+  ]
+}
